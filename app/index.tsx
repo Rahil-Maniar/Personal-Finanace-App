@@ -1,6 +1,6 @@
 // index.tsx
 import Dashboard from './Dashboard';
 
-export default function Index() {
+export default function Bachat() {
   return <Dashboard />;
 }

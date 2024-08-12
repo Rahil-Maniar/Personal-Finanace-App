@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, FlatList, Alert, Image } from 'react-native';
-import { TextInput, Button, Card, Title, Paragraph, Modal, Portal } from 'react-native-paper';
+import { StyleSheet, View, FlatList, Alert, Image, Dimensions } from 'react-native';
+import { TextInput, Button, Card, Title, Paragraph, Modal, Portal, Provider as PaperProvider } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StatusBar } from 'expo-status-bar';
 
 import logo from '../assets/images/logo.png';
 
+const { width } = Dimensions.get('window');
+
+const theme = {
+  colors: {
+    primary: '#6200EE',
+    accent: '#03DAC6',
+    background: '#F5F5F5',
+    surface: '#FFFFFF',
+    text: '#212121',
+    error: '#B00020',
+    income: '#4CAF50',
+    expense: '#F44336',
+  },
+  roundness: 12,
+};
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [transactionType, setTransactionType] = useState('Income');
@@ -119,17 +135,36 @@ export default function Dashboard() {
   const savings = totalIncome - totalExpenses;
 
   const renderTransactionItem = ({ item }) => (
-    <Card style={[styles.transactionItem, { backgroundColor: '#333' }]}>
+    <Card style={styles.transactionItem}>
       <Card.Content>
-        <Paragraph style={[styles.darkText, { color: '#FFFFFF' }]} numberOfLines={2} ellipsizeMode="tail">
-          <Icon name={item.type === 'Income' ? 'cash' : 'cash-minus'} size={20} style={styles.iconSpacing} />
-          {`${item.label}: ${item.type} - ${item.source}: $${item.amount.toFixed(2)}`}
+        <View style={styles.transactionHeader}>
+          <Icon
+            name={item.type === 'Income' ? 'cash-plus' : 'cash-minus'}
+            size={24}
+            color={item.type === 'Income' ? theme.colors.income : theme.colors.expense}
+          />
+          <Title style={styles.transactionLabel}>{item.label}</Title>
+        </View>
+        <Paragraph style={styles.transactionDetails}>
+          {`${item.type} - ${item.source}: $${item.amount.toFixed(2)}`}
         </Paragraph>
         <View style={styles.actionButtons}>
-          <Button icon="pencil" mode="outlined" onPress={() => handleEditTransaction(item)} style={styles.editButton}>
+          <Button
+            icon="pencil"
+            mode="outlined"
+            onPress={() => handleEditTransaction(item)}
+            style={styles.editButton}
+            labelStyle={styles.buttonLabel}
+          >
             Edit
           </Button>
-          <Button icon="delete" mode="outlined" onPress={() => handleDeleteTransaction(item.id)} style={styles.deleteButton}>
+          <Button
+            icon="delete"
+            mode="outlined"
+            onPress={() => handleDeleteTransaction(item.id)}
+            style={styles.deleteButton}
+            labelStyle={styles.buttonLabel}
+          >
             Delete
           </Button>
         </View>
@@ -138,59 +173,63 @@ export default function Dashboard() {
   );
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        data={transactions}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderTransactionItem}
-        ListHeaderComponent={
-          <View style={styles.headerContainer}>
-            <View style={styles.header}>
-              <Image source={logo} style={styles.logoImage} />
-              <Title style={[styles.headerText, styles.darkText]}>Bachat</Title>
-            </View>
-            <Card style={styles.balanceCard} onPress={() => router.push({ pathname: '/SavingsScreen', params: { currentSavings: savings } })}>
-              <Card.Content style={styles.balanceContent}>
-                <Icon name="bank" size={30} color="#4CAF50" style={styles.iconSpacing} />
-                <View>
-                  <Title style={styles.darkText}>Current Savings</Title>
-                  <Paragraph style={[styles.balanceAmount, styles.darkText]}>${savings.toFixed(2)}</Paragraph>
-                </View>
-              </Card.Content>
-            </Card>
-            <View style={styles.incomeExpenseContainer}>
-              <Card style={[styles.incomeCard, styles.incomecard]} onPress={() => router.push({ pathname: '/IncomeScreen', params: { totalIncome, fixedIncome, variableIncome, transactions: transactions.filter(t => t.type === 'Income') } })}>
-                <Card.Content style={styles.cardContent}>
-                  <Icon name="cash" size={30} color="#2196F3" style={styles.iconSpacing} />
+    <PaperProvider theme={theme}>
+      <StatusBar style="auto" />
+      <View style={styles.container}>
+        <FlatList
+          data={transactions}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderTransactionItem}
+          ListHeaderComponent={
+            <View style={styles.headerContainer}>
+              <View style={styles.header}>
+                <Image source={logo} style={styles.logoImage} />
+                <Title style={styles.headerText}>Bachat</Title>
+              </View>
+              <Card style={styles.balanceCard} onPress={() => router.push({ pathname: '/SavingsScreen', params: { currentSavings: savings } })}>
+                <Card.Content style={styles.balanceContent}>
+                  <Icon name="bank" size={36} color={theme.colors.income} style={styles.iconSpacing} />
                   <View>
-                    <Title style={styles.darkText}>Total Income</Title>
-                    <Paragraph style={[styles.cardAmount, styles.darkText]}>${totalIncome.toFixed(2)}</Paragraph>
-                    <Paragraph style={styles.darkText}>Fixed: ${fixedIncome.toFixed(2)}</Paragraph>
-                    <Paragraph style={styles.darkText}>Variable: ${variableIncome.toFixed(2)}</Paragraph>
+                    <Title style={styles.balanceTitle}>Current Savings</Title>
+                    <Paragraph style={styles.balanceAmount}>${savings.toFixed(2)}</Paragraph>
                   </View>
                 </Card.Content>
               </Card>
-              <Card style={[styles.expenseCard, styles.expenseCard]} onPress={() => router.push({ pathname: '/ExpensesScreen', params: { totalExpenses, transactions: transactions.filter(t => t.type === 'Expense') } })}>
-                <Card.Content style={styles.cardContent}>
-                  <Icon name="cash-minus" size={30} color="#F44336" style={styles.iconSpacing} />
-                  <View>
-                    <Title style={styles.darkText}>Total Expenses</Title>
-                    <Paragraph style={[styles.cardAmount, styles.darkText]}>${totalExpenses.toFixed(2)}</Paragraph>
-                  </View>
-                </Card.Content>
-              </Card>
+              <View style={styles.incomeExpenseContainer}>
+                <Card style={styles.incomeCard} onPress={() => router.push({ pathname: '/IncomeScreen', params: { totalIncome, fixedIncome, variableIncome, transactions: transactions.filter(t => t.type === 'Income') } })}>
+                  <Card.Content style={styles.cardContent}>
+                    <Icon name="cash" size={36} color={theme.colors.income} style={styles.iconSpacing} />
+                    <View>
+                      <Title style={styles.cardTitle}>Total Income</Title>
+                      <Paragraph style={styles.cardAmount}>${totalIncome.toFixed(2)}</Paragraph>
+                      <Paragraph style={styles.cardDetails}>Fixed: ${fixedIncome.toFixed(2)}</Paragraph>
+                      <Paragraph style={styles.cardDetails}>Variable: ${variableIncome.toFixed(2)}</Paragraph>
+                    </View>
+                  </Card.Content>
+                </Card>
+                <Card style={styles.expenseCard} onPress={() => router.push({ pathname: '/ExpensesScreen', params: { totalExpenses, transactions: transactions.filter(t => t.type === 'Expense') } })}>
+                  <Card.Content style={styles.cardContent}>
+                    <Icon name="cash-minus" size={36} color={theme.colors.expense} style={styles.iconSpacing} />
+                    <View>
+                      <Title style={styles.cardTitle}>Total Expenses</Title>
+                      <Paragraph style={styles.cardAmount}>${totalExpenses.toFixed(2)}</Paragraph>
+                    </View>
+                  </Card.Content>
+                </Card>
+              </View>
+              <Button
+                mode="contained"
+                onPress={() => setModalVisible(true)}
+                style={styles.addButton}
+                icon="plus-circle"
+                labelStyle={styles.buttonLabel}
+              >
+                Add Transaction
+              </Button>
             </View>
-            <Button
-              mode="contained"
-              onPress={() => setModalVisible(true)}
-              style={styles.addButton}
-              icon="plus-circle"
-            >
-              Add Transaction
-            </Button>
-          </View>
-        }
-      />
+          }
+        />
+
 
       <Portal>
         <Modal visible={isModalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modalContainer}>
@@ -227,36 +266,39 @@ export default function Dashboard() {
             placeholderTextColor="#212121"
           />
           <View style={styles.buttonGroup}>
-            <Button mode={transactionType === 'Income' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Income')} style={transactionType === 'Income' && styles.activeButton}>
+            <Button mode={transactionType === 'Income' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Income')} style={styles.transactionButton}>
               Income
             </Button>
-            <Button mode={transactionType === 'Expense' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Expense')} style={transactionType === 'Expense' && styles.activeButton}>
+            <Button mode={transactionType === 'Expense' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Expense')} style={styles.transactionButton}>
               Expense
             </Button>
           </View>
           {transactionType === 'Income' && (
             <View style={styles.buttonGroup}>
-              <Button mode={sourceType === 'Fixed' ? 'contained' : 'outlined'} onPress={() => setSourceType('Fixed')} style={sourceType === 'Fixed' && styles.activeButton}>
+              <Button mode={sourceType === 'Fixed' ? 'contained' : 'outlined'} onPress={() => setSourceType('Fixed')} style={styles.transactionButton}>
                 Fixed
               </Button>
-              <Button mode={sourceType === 'Variable' ? 'contained' : 'outlined'} onPress={() => setSourceType('Variable')} style={sourceType === 'Variable' && styles.activeButton}>
+              <Button mode={sourceType === 'Variable' ? 'contained' : 'outlined'} onPress={() => setSourceType('Variable')} style={styles.transactionButton}>
                 Variable
               </Button>
             </View>
           )}
           <Button mode="contained" onPress={handleAddOrUpdateTransaction} style={styles.saveButton}>
-            {editingTransaction ? 'Update Transaction' : 'Save Transaction'}
+            {editingTransaction ? 'Update' : 'Add'} Transaction
           </Button>
         </Modal>
       </Portal>
     </View>
+    </PaperProvider>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#ECEFF1',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   headerContainer: {
     marginBottom: 16,
@@ -266,23 +308,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  logoImage: {
+    width: 50,
+    height: 50,
+    marginRight: 10,
+  },
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
   },
-  logoImage: {
-    width: 40,
-    height: 40,
-    marginRight: 8,
-  },
   balanceCard: {
     backgroundColor: '#E8F5E9',
     marginBottom: 16,
-    overflow: 'hidden', // Ensures content stays within the card
+    padding: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   balanceContent: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  iconSpacing: {
+    marginRight: 10,
   },
   balanceAmount: {
     fontSize: 24,
@@ -290,26 +337,21 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   incomeExpenseContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 16,
-    paddingHorizontal: 5,
   },
   expenseCard: {
-    flex: 1,
     backgroundColor: '#FFEBEE',
-    marginLeft: 5,
+    marginTop: 10,
     padding: 10,
     borderRadius: 8,
-    overflow: 'hidden', // Ensures content stays within the card
+    overflow: 'hidden',
   },
   incomeCard: {
-    flex: 1,
     backgroundColor: '#E3F2FD',
-    marginRight: 5,
+    marginTop: 10,
     padding: 10,
     borderRadius: 8,
-    overflow: 'hidden', // Ensures content stays within the card
+    overflow: 'hidden',
   },
   cardContent: {
     flexDirection: 'row',
@@ -318,57 +360,55 @@ const styles = StyleSheet.create({
   cardAmount: {
     fontSize: 18,
     fontWeight: 'bold',
-    flexShrink: 1, // Ensures the text shrinks if necessary
   },
   addButton: {
+    backgroundColor: '#2196F3',
     marginTop: 16,
-  },
-  darkText: {
-    color: 'black',
-    flexShrink: 1, // Ensures the text container shrinks if needed
-    flexWrap: 'wrap', // Allows text to wrap within its container
-  },
-  iconSpacing: {
-    marginRight: 8,
+    paddingVertical: 8,
   },
   transactionItem: {
-    marginBottom: 16,
-    padding: 10,
-    color: 'white',
+    marginBottom: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 8,
+    justifyContent: 'space-between',
+    marginTop: 10,
   },
   editButton: {
-    marginRight: 8,
+    borderColor: '#64B5F6',
   },
   deleteButton: {
-    borderColor: '#F44336',
+    borderColor: '#E57373',
   },
   modalContainer: {
     backgroundColor: 'white',
     padding: 20,
     marginHorizontal: 20,
-    color: '#212121',
+    borderRadius: 8,
+  },
+  dropDownContainer: {
+    borderColor: '#212121',
+    borderWidth: 1,
   },
   input: {
     marginBottom: 16,
+    backgroundColor: 'white',
   },
   buttonGroup: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  activeButton: {
-    backgroundColor: '#4CAF50',
+  transactionButton: {
+    flex: 1,
+    marginHorizontal: 4,
   },
   saveButton: {
-    marginTop: 16,
+    backgroundColor: '#4CAF50',
   },
-  dropDownContainer: {
-    marginBottom: 16,
-    zIndex: 1000,
+  darkText: {
+    color: '#212121',
   },
 });
