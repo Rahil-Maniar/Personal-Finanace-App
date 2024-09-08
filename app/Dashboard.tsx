@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, FlatList, Alert, Image, Dimensions } from 'react-native';
+import { StyleSheet, View, FlatList, Alert, Image, Dimensions, TouchableOpacity } from 'react-native';
 import { TextInput, Button, Card, Title, Paragraph, Modal, Portal, Provider as PaperProvider } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import DropDownPicker from 'react-native-dropdown-picker';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from './types';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import logo from '../assets/images/logo.png';
 
@@ -24,6 +28,7 @@ const theme = {
   },
   roundness: 12,
 };
+
 export default function Dashboard() {
   const [transactions, setTransactions] = useState([]);
   const [transactionType, setTransactionType] = useState('Income');
@@ -34,6 +39,14 @@ export default function Dashboard() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [isModalVisible, setModalVisible] = useState(false);
   const [isDropDownOpen, setDropDownOpen] = useState(false);
+
+  type DashboardNavigationProp = StackNavigationProp<RootStackParamList, 'InvestmentScreen'>;
+
+  const navigation = useNavigation<DashboardNavigationProp>();
+  
+  const navigateToInvestmentScreen = () => {
+    navigation.navigate('InvestmentScreen', { availableFunds: savings });
+  };
 
   const router = useRouter();
 
@@ -127,12 +140,48 @@ export default function Dashboard() {
     transactions
       .filter(transaction => transaction.type === type && (source ? transaction.source === source : true))
       .reduce((sum, transaction) => sum + transaction.amount, 0);
-
+  
   const totalIncome = calculateTotal('Income');
   const fixedIncome = calculateTotal('Income', 'Fixed');
   const variableIncome = calculateTotal('Income', 'Variable');
   const totalExpenses = calculateTotal('Expense');
   const savings = totalIncome - totalExpenses;
+
+  const navigateToSavingsScreen = () => {
+    router.push({
+      pathname: '/SavingsScreen',
+      params: { 
+        currentSavings: savings,
+        totalIncome: totalIncome,
+        fixedIncome: fixedIncome,
+        variableIncome: variableIncome,
+        totalExpenses: totalExpenses,
+        transactions: JSON.stringify(transactions)
+      },
+    });
+  };
+
+  const navigateToIncomeScreen = () => {
+    router.push({
+      pathname: '/IncomeScreen',
+      params: {
+        totalIncome: totalIncome,
+        fixedIncome: fixedIncome,
+        variableIncome: variableIncome,
+        transactions: JSON.stringify(transactions.filter(t => t.type === 'Income'))
+      }
+    });
+  };
+
+  const navigateToExpensesScreen = () => {
+    router.push({
+      pathname: '/ExpensesScreen',
+      params: {
+        totalExpenses: totalExpenses,
+        transactions: JSON.stringify(transactions.filter(t => t.type === 'Expense'))
+      }
+    });
+  };
 
   const renderTransactionItem = ({ item }) => (
     <Card style={styles.transactionItem}>
@@ -172,9 +221,37 @@ export default function Dashboard() {
     </Card>
   );
 
+  const renderInvestmentCard = () => (
+    <TouchableOpacity onPress={navigateToInvestmentScreen}>
+      <Card style={[styles.investmentCard, styles.cardShadow]}>
+        <LinearGradient
+          colors={['#00BCD4', '#0288D1', '#01579B']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientBackground}
+        >
+          <Card.Content style={styles.investmentCardContent}>
+            <View style={styles.investmentIconContainer}>
+              <Icon name="chart-line-variant" size={48} color="#FFFFFF" />
+            </View>
+            <View style={styles.investmentTextContainer}>
+              <Title style={styles.investmentCardTitle}>Investments</Title>
+              <Paragraph style={styles.investmentCardAmount}>
+                Available Funds: ${savings.toFixed(2)}
+              </Paragraph>
+              <View style={styles.investmentCardButton}>
+                <Icon name="arrow-right" size={24} color="#FFFFFF" />
+              </View>
+            </View>
+          </Card.Content>
+        </LinearGradient>
+      </Card>
+    </TouchableOpacity>
+  );
+
   return (
     <PaperProvider theme={theme}>
-      <StatusBar style="auto" />
+      <StatusBar style="auto" hidden={true}/>
       <View style={styles.container}>
         <FlatList
           data={transactions}
@@ -186,7 +263,7 @@ export default function Dashboard() {
                 <Image source={logo} style={styles.logoImage} />
                 <Title style={styles.headerText}>Bachat</Title>
               </View>
-              <Card style={styles.balanceCard} onPress={() => router.push({ pathname: '/SavingsScreen', params: { currentSavings: savings } })}>
+              <Card style={styles.balanceCard} onPress={navigateToSavingsScreen}>
                 <Card.Content style={styles.balanceContent}>
                   <Icon name="bank" size={36} color={theme.colors.income} style={styles.iconSpacing} />
                   <View>
@@ -195,8 +272,9 @@ export default function Dashboard() {
                   </View>
                 </Card.Content>
               </Card>
+
               <View style={styles.incomeExpenseContainer}>
-                <Card style={styles.incomeCard} onPress={() => router.push({ pathname: '/IncomeScreen', params: { totalIncome, fixedIncome, variableIncome, transactions: transactions.filter(t => t.type === 'Income') } })}>
+                <Card style={styles.incomeCard} onPress={navigateToIncomeScreen}>
                   <Card.Content style={styles.cardContent}>
                     <Icon name="cash" size={36} color={theme.colors.income} style={styles.iconSpacing} />
                     <View>
@@ -207,7 +285,7 @@ export default function Dashboard() {
                     </View>
                   </Card.Content>
                 </Card>
-                <Card style={styles.expenseCard} onPress={() => router.push({ pathname: '/ExpensesScreen', params: { totalExpenses, transactions: transactions.filter(t => t.type === 'Expense') } })}>
+                <Card style={styles.expenseCard} onPress={navigateToExpensesScreen}>
                   <Card.Content style={styles.cardContent}>
                     <Icon name="cash-minus" size={36} color={theme.colors.expense} style={styles.iconSpacing} />
                     <View>
@@ -217,6 +295,9 @@ export default function Dashboard() {
                   </Card.Content>
                 </Card>
               </View>
+
+              {renderInvestmentCard()}
+
               <Button
                 mode="contained"
                 onPress={() => setModalVisible(true)}
@@ -230,65 +311,64 @@ export default function Dashboard() {
           }
         />
 
-
-      <Portal>
-        <Modal visible={isModalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modalContainer}>
-          <DropDownPicker
-            open={isDropDownOpen}
-            value={label}
-            items={getDropDownItems().map(item => ({ label: item, value: item }))}
-            setOpen={setDropDownOpen}
-            setValue={setLabel}
-            placeholder="Select or type a label"
-            dropDownContainerStyle={styles.dropDownContainer}
-            zIndex={3000}
-            zIndexInverse={1000}
-          />
-          {label === 'Custom' && (
+        <Portal>
+          <Modal visible={isModalVisible} onDismiss={() => setModalVisible(false)} contentContainerStyle={styles.modalContainer}>
+            <DropDownPicker
+              open={isDropDownOpen}
+              value={label}
+              items={getDropDownItems().map(item => ({ label: item, value: item }))}
+              setOpen={setDropDownOpen}
+              setValue={setLabel}
+              placeholder="Select or type a label"
+              dropDownContainerStyle={styles.dropDownContainer}
+              zIndex={3000}
+              zIndexInverse={1000}
+            />
+            {label === 'Custom' && (
+              <TextInput
+                label="Custom Label"
+                value={customLabel}
+                onChangeText={setCustomLabel}
+                style={styles.input}
+                mode="outlined"
+                placeholder="Enter a custom label"
+                placeholderTextColor="#212121"
+              />
+            )}
             <TextInput
-              label="Custom Label"
-              value={customLabel}
-              onChangeText={setCustomLabel}
+              label="Amount"
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
               style={styles.input}
               mode="outlined"
-              placeholder="Enter a custom label"
+              placeholder="Enter the amount"
               placeholderTextColor="#212121"
             />
-          )}
-          <TextInput
-            label="Amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            style={styles.input}
-            mode="outlined"
-            placeholder="Enter the amount"
-            placeholderTextColor="#212121"
-          />
-          <View style={styles.buttonGroup}>
-            <Button mode={transactionType === 'Income' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Income')} style={styles.transactionButton}>
-              Income
-            </Button>
-            <Button mode={transactionType === 'Expense' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Expense')} style={styles.transactionButton}>
-              Expense
-            </Button>
-          </View>
-          {transactionType === 'Income' && (
             <View style={styles.buttonGroup}>
-              <Button mode={sourceType === 'Fixed' ? 'contained' : 'outlined'} onPress={() => setSourceType('Fixed')} style={styles.transactionButton}>
-                Fixed
+              <Button mode={transactionType === 'Income' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Income')} style={styles.transactionButton}>
+                Income
               </Button>
-              <Button mode={sourceType === 'Variable' ? 'contained' : 'outlined'} onPress={() => setSourceType('Variable')} style={styles.transactionButton}>
-                Variable
+              <Button mode={transactionType === 'Expense' ? 'contained' : 'outlined'} onPress={() => setTransactionType('Expense')} style={styles.transactionButton}>
+                Expense
               </Button>
             </View>
-          )}
-          <Button mode="contained" onPress={handleAddOrUpdateTransaction} style={styles.saveButton}>
-            {editingTransaction ? 'Update' : 'Add'} Transaction
-          </Button>
-        </Modal>
-      </Portal>
-    </View>
+            {transactionType === 'Income' && (
+              <View style={styles.buttonGroup}>
+                <Button mode={sourceType === 'Fixed' ? 'contained' : 'outlined'} onPress={() => setSourceType('Fixed')} style={styles.transactionButton}>
+                  Fixed
+                </Button>
+                <Button mode={sourceType === 'Variable' ? 'contained' : 'outlined'} onPress={() => setSourceType('Variable')} style={styles.transactionButton}>
+                  Variable
+                </Button>
+              </View>
+            )}
+            <Button mode="contained" onPress={handleAddOrUpdateTransaction} style={styles.saveButton}>
+              {editingTransaction ? 'Update' : 'Add'} Transaction
+            </Button>
+          </Modal>
+        </Portal>
+      </View>
     </PaperProvider>
   );
 }
@@ -316,8 +396,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  balanceCard: {
+  },balanceCard: {
     backgroundColor: '#E8F5E9',
     marginBottom: 16,
     padding: 10,
@@ -328,8 +407,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  iconSpacing: {
-    marginRight: 10,
+  balanceTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   balanceAmount: {
     fontSize: 24,
@@ -339,15 +419,15 @@ const styles = StyleSheet.create({
   incomeExpenseContainer: {
     marginBottom: 16,
   },
-  expenseCard: {
-    backgroundColor: '#FFEBEE',
+  incomeCard: {
+    backgroundColor: '#E3F2FD',
     marginTop: 10,
     padding: 10,
     borderRadius: 8,
     overflow: 'hidden',
   },
-  incomeCard: {
-    backgroundColor: '#E3F2FD',
+  expenseCard: {
+    backgroundColor: '#FFEBEE',
     marginTop: 10,
     padding: 10,
     borderRadius: 8,
@@ -357,19 +437,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  iconSpacing: {
+    marginRight: 10,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   cardAmount: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  cardDetails: {
+    fontSize: 14,
   },
   addButton: {
     backgroundColor: '#2196F3',
     marginTop: 16,
     paddingVertical: 8,
   },
+  buttonLabel: {
+    fontSize: 16,
+  },
   transactionItem: {
     marginBottom: 10,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  transactionLabel: {
+    marginLeft: 8,
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  transactionDetails: {
+    fontSize: 16,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -408,7 +514,49 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#4CAF50',
   },
-  darkText: {
-    color: '#212121',
+  investmentCard: {
+    marginVertical: 16,
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  cardShadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  gradientBackground: {
+    borderRadius: 15,
+  },
+  investmentCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+  },
+  investmentIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 50,
+    padding: 12,
+    marginRight: 16,
+  },
+  investmentTextContainer: {
+    flex: 1,
+  },
+  investmentCardTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  investmentCardAmount: {
+    fontSize: 16,
+    color: '#E0E0E0',
+  },
+  investmentCardButton: {
+    position: 'absolute',
+    right: 0,
+    top: '50%',
+    transform: [{ translateY: -12 }],
   },
 });

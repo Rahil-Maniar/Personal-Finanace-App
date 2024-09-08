@@ -10,6 +10,13 @@ export default function RootLayout() {
         <Stack.Screen name="SavingsScreen" />
         <Stack.Screen name="IncomeScreen" />
         <Stack.Screen name="ExpensesScreen" />
+        <Stack.Screen 
+          name="InvestmentScreen" 
+          options={{
+            title: "Investments",
+            headerBackTitle: "Back"
+          }}
+        />
       </Stack>
     </PaperProvider>
   );

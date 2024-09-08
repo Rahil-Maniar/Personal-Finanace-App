@@ -1,36 +1,65 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, SafeAreaView, StatusBar } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const theme = {
-  primary: '#2196F3',  // Blue
-  secondary: '#FFC107',  // Amber for contrast
-  background: '#F5F5F5',  // Light gray background
+  primary: '#2196F3',
+  secondary: '#FFC107',
+  background: '#F5F5F5',
   surface: '#FFFFFF',
-  error: '#F44336',  // Red for errors
-  text: '#212121',  // Dark gray for text
-  onSurface: '#212121',
-  accent: '#4CAF50',  // Green accent
+  error: '#F44336',
+  text: '#212121',
+  onSurface: '#757575',
+  accent: '#4CAF50',
+  shadowColor: '#000',
 };
 
 export default function IncomeScreen() {
   const route = useRoute();
-  const { totalIncome } = route.params;
-
-  const [incomeSources, setIncomeSources] = useState([
-    { id: '1', name: 'Job Salary', target: 5000, earned: 3500 },
-    { id: '2', name: 'Freelancing', target: 1500, earned: 900 },
-  ]);
-
-  const [recentTransactions, setRecentTransactions] = useState([
-    { id: '1', name: 'Salary Payment', amount: 2000, date: '2024-08-01' },
-    { id: '2', name: 'Freelancing Project', amount: 500, date: '2024-08-05' },
-  ]);
-
+  const navigation = useNavigation();
+  const [totalIncome, setTotalIncome] = useState(route.params?.totalIncome || 0);
+  const [incomeSources, setIncomeSources] = useState([]);
+  const [recentTransactions, setRecentTransactions] = useState([]);
   const [isModalVisible, setModalVisible] = useState(false);
   const [newSourceName, setNewSourceName] = useState('');
   const [newSourceTarget, setNewSourceTarget] = useState('');
+  const [addIncomeModalVisible, setAddIncomeModalVisible] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState(null);
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeName, setIncomeName] = useState('');
+  const [editSourceModalVisible, setEditSourceModalVisible] = useState(false);
+  const [editingSource, setEditingSource] = useState(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const savedSources = await AsyncStorage.getItem('incomeSources');
+      const savedTransactions = await AsyncStorage.getItem('incomeTransactions');
+      const savedTotalIncome = await AsyncStorage.getItem('totalIncome');
+
+      if (savedSources) setIncomeSources(JSON.parse(savedSources));
+      if (savedTransactions) setRecentTransactions(JSON.parse(savedTransactions));
+      if (savedTotalIncome) setTotalIncome(parseFloat(savedTotalIncome));
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
+
+  const saveData = async () => {
+    try {
+      await AsyncStorage.setItem('incomeSources', JSON.stringify(incomeSources));
+      await AsyncStorage.setItem('incomeTransactions', JSON.stringify(recentTransactions));
+      await AsyncStorage.setItem('totalIncome', totalIncome.toString());
+    } catch (error) {
+      console.error('Error saving data:', error);
+    }
+  };
 
   const addNewSource = () => {
     if (!newSourceName || !newSourceTarget) {
@@ -49,6 +78,71 @@ export default function IncomeScreen() {
     setNewSourceName('');
     setNewSourceTarget('');
     setModalVisible(false);
+    saveData();
+  };
+
+  const updateSource = () => {
+    if (!editingSource.name || !editingSource.target) {
+      Alert.alert('Error', 'Please fill out all fields.');
+      return;
+    }
+
+    const updatedSources = incomeSources.map(source =>
+      source.id === editingSource.id ? { ...source, name: editingSource.name, target: parseFloat(editingSource.target) } : source
+    );
+
+    setIncomeSources(updatedSources);
+    setEditSourceModalVisible(false);
+    setEditingSource(null);
+    saveData();
+  };
+
+  const deleteSource = (sourceId) => {
+    Alert.alert(
+      'Delete Source',
+      'Are you sure you want to delete this income source?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => {
+            const updatedSources = incomeSources.filter(source => source.id !== sourceId);
+            setIncomeSources(updatedSources);
+            saveData();
+          }
+        },
+      ]
+    );
+  };
+
+  const addIncome = () => {
+    const amount = parseFloat(incomeAmount);
+    if (isNaN(amount) || amount <= 0 || !incomeName) {
+      Alert.alert('Error', 'Please enter a valid amount and name for the income.');
+      return;
+    }
+
+    const updatedSources = incomeSources.map(source =>
+      source.id === selectedSourceId ? { ...source, earned: source.earned + amount } : source
+    );
+
+    const newTransaction = {
+      id: Date.now().toString(),
+      name: incomeName,
+      amount: amount,
+      date: new Date().toISOString().split('T')[0],
+      sourceId: selectedSourceId,
+    };
+
+    setIncomeSources(updatedSources);
+    setRecentTransactions([newTransaction, ...recentTransactions].slice(0, 10));
+    setTotalIncome(prevTotal => prevTotal + amount);
+    setAddIncomeModalVisible(false);
+    setIncomeAmount('');
+    setIncomeName('');
+    setSelectedSourceId(null);
+    saveData();
   };
 
   const renderIncomeSource = ({ item }) => {
@@ -59,17 +153,37 @@ export default function IncomeScreen() {
         <View style={styles.incomeHeader}>
           <Icon name="account-balance-wallet" size={24} color={theme.primary} />
           <Text style={styles.incomeText}>{item.name}</Text>
+          <View style={styles.sourceActions}>
+            <TouchableOpacity onPress={() => {
+              setEditingSource(item);
+              setEditSourceModalVisible(true);
+            }}>
+              <Icon name="edit" size={24} color={theme.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => deleteSource(item.id)}>
+              <Icon name="delete" size={24} color={theme.error} />
+            </TouchableOpacity>
+          </View>
         </View>
         <Text style={styles.incomeAmount}>
           ${item.earned.toFixed(2)} / ${item.target.toFixed(2)}
         </Text>
         <View style={styles.progressBarContainer}>
-          <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
+          <LinearGradient
+            colors={[theme.primary, theme.secondary]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[styles.progressBar, { width: `${progress * 100}%` }]}
+          />
         </View>
         <TouchableOpacity
           style={styles.addIncomeButton}
-          onPress={() => Alert.alert('Add Income', `Feature to add to ${item.name} is not implemented yet.`)}
+          onPress={() => {
+            setSelectedSourceId(item.id);
+            setAddIncomeModalVisible(true);
+          }}
         >
+          <Icon name="add" size={20} color={theme.surface} />
           <Text style={styles.addIncomeButtonText}>Add Income</Text>
         </TouchableOpacity>
       </View>
@@ -92,13 +206,21 @@ export default function IncomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar backgroundColor={theme.primary} barStyle="light-content" />
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Icon name="arrow-back" size={24} color={theme.surface} />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Income Tracker</Text>
+        <View style={styles.headerRight} />
       </View>
+
       <View style={styles.totalIncomeContainer}>
-        <Text style={styles.totalIncomeLabel}>Total Income</Text>
-        <Text style={styles.totalIncomeAmount}>
-          ${typeof totalIncome === 'number' ? totalIncome.toFixed(2) : totalIncome}
-        </Text>
+        <Icon name="account-balance-wallet" size={40} color={theme.primary} />
+        <View>
+          <Text style={styles.totalIncomeLabel}>Total Income</Text>
+          <Text style={styles.totalIncomeAmount}>
+            ${typeof totalIncome === 'number' ? totalIncome.toFixed(2) : '0.00'}
+          </Text>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>Income Sources</Text>
@@ -108,11 +230,6 @@ export default function IncomeScreen() {
         keyExtractor={(item) => item.id}
         style={styles.list}
       />
-      
-      <TouchableOpacity style={styles.addSourceButton} onPress={() => setModalVisible(true)}>
-        <Icon name="add" size={24} color={theme.surface} />
-        <Text style={styles.addSourceButtonText}>Add New Income Source</Text>
-      </TouchableOpacity>
 
       <Text style={styles.sectionTitle}>Recent Transactions</Text>
       <FlatList
@@ -122,29 +239,97 @@ export default function IncomeScreen() {
         style={styles.list}
       />
 
-      <Modal visible={isModalVisible} animationType="slide" transparent={true}>
+      <TouchableOpacity style={styles.addSourceFAB} onPress={() => setModalVisible(true)}>
+        <Icon name="add" size={24} color={theme.surface} />
+      </TouchableOpacity>
+
+      <Modal visible={isModalVisible} animationType="fade" transparent={true}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Add New Income Source</Text>
             <TextInput
+              style={styles.modalInput}
               placeholder="Source Name"
+              placeholderTextColor={theme.onSurface}
               value={newSourceName}
               onChangeText={setNewSourceName}
-              style={styles.input}
             />
             <TextInput
+              style={styles.modalInput}
               placeholder="Target Amount"
+              placeholderTextColor={theme.onSurface}
               value={newSourceTarget}
               onChangeText={setNewSourceTarget}
               keyboardType="numeric"
-              style={styles.input}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.modalButton} onPress={addNewSource}>
                 <Text style={styles.modalButtonText}>Add Source</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setModalVisible(false)}>
-                <Text style={[styles.modalButtonText, styles.cancelButtonText]}>Cancel</Text>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={addIncomeModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add Income</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Income Name"
+              placeholderTextColor={theme.onSurface}
+              value={incomeName}
+              onChangeText={setIncomeName}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Amount"
+              placeholderTextColor={theme.onSurface}
+              value={incomeAmount}
+              onChangeText={setIncomeAmount}
+              keyboardType="numeric"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalButton} onPress={addIncome}>
+                <Text style={styles.modalButtonText}>Add Income</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setAddIncomeModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={editSourceModalVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Income Source</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Source Name"
+              placeholderTextColor={theme.onSurface}
+              value={editingSource?.name}
+              onChangeText={(text) => setEditingSource({...editingSource, name: text})}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Target Amount"
+              placeholderTextColor={theme.onSurface}
+              value={editingSource?.target.toString()}
+              onChangeText={(text) => setEditingSource({...editingSource, target: text})}
+              keyboardType="numeric"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalButton} onPress={updateSource}>
+                <Text style={styles.modalButtonText}>Update Source</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setEditSourceModalVisible(false)}>
+                <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -155,35 +340,195 @@ export default function IncomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.background },
-  header: { backgroundColor: theme.primary, padding: 20 },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: theme.surface },
-  totalIncomeContainer: { backgroundColor: theme.surface, padding: 20, alignItems: 'center', elevation: 2 },
-  totalIncomeLabel: { fontSize: 18, color: theme.text },
-  totalIncomeAmount: { fontSize: 36, fontWeight: 'bold', color: theme.primary, marginTop: 10 },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginVertical: 15, marginHorizontal: 20, color: theme.text },
-  list: { marginHorizontal: 20 },
-  incomeItem: { backgroundColor: theme.surface, borderRadius: 8, padding: 15, marginBottom: 15, elevation: 2 },
-  incomeHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  incomeText: { fontSize: 18, fontWeight: '600', marginLeft: 10, color: theme.text },
-  incomeAmount: { fontSize: 16, marginBottom: 10, color: theme.text },
-  progressBarContainer: { height: 8, backgroundColor: theme.background, borderRadius: 4, marginBottom: 15, overflow: 'hidden' },
-  progressBar: { height: '100%', backgroundColor: theme.primary },
-  addIncomeButton: { backgroundColor: theme.secondary, borderRadius: 4, padding: 10, alignItems: 'center' },
-  addIncomeButtonText: { color: theme.text, fontWeight: '600' },
-  transactionItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, backgroundColor: theme.surface, borderRadius: 8, padding: 15, elevation: 2 },
-  transactionText: { fontSize: 16, color: theme.text },
-  transactionDate: { fontSize: 14, color: 'gray', marginTop: 5 },
-  transactionAmount: { fontSize: 16, fontWeight: 'bold', color: theme.primary },
-  addSourceButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: theme.accent, borderRadius: 8, padding: 15, marginHorizontal: 20, marginBottom: 20 },
-  addSourceButtonText: { color: theme.surface, fontWeight: '600', marginLeft: 10 },
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { width: '80%', padding: 20, backgroundColor: theme.surface, borderRadius: 10 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, color: theme.text },
-  input: { borderBottomWidth: 1, borderBottomColor: theme.primary, marginBottom: 20, fontSize: 16, paddingVertical: 5 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  modalButton: { flex: 1, backgroundColor: theme.primary, borderRadius: 4, padding: 10, alignItems: 'center', marginHorizontal: 5 },
-  modalButtonText: { color: theme.surface, fontWeight: '600' },
-  cancelButton: { backgroundColor: theme.error },
-  cancelButtonText: { color: theme.surface },
+  container: { 
+    flex: 1, 
+    backgroundColor: theme.background 
+  },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    backgroundColor: theme.primary, 
+    padding: 16, 
+    borderBottomLeftRadius: 20, 
+    borderBottomRightRadius: 20 
+  },
+  backButton: { 
+    padding: 8 
+  },
+  headerRight: { 
+    width: 40 
+  },
+  headerTitle: { 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: theme.surface 
+  },
+  totalIncomeContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: theme.surface, 
+    padding: 20, 
+    margin: 20, 
+    borderRadius: 15, 
+    shadowColor: theme.shadowColor, 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 10, 
+    elevation: 5 
+  },
+  totalIncomeLabel: { 
+    fontSize: 16, 
+    color: theme.onSurface, 
+    marginBottom: 4 
+  },
+  totalIncomeAmount: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: theme.primary 
+  },
+  sectionTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    marginVertical: 15, 
+    marginHorizontal: 20, 
+    color: theme.text 
+  },
+  list: { 
+    marginHorizontal: 20 
+  },
+  incomeItem: { 
+    backgroundColor: theme.surface, 
+    borderRadius: 15, 
+    padding: 15, 
+    marginBottom: 15, 
+    shadowColor: theme.shadowColor, 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.1, 
+    shadowRadius: 10, 
+    elevation: 5 
+  },
+  incomeHeader: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 10 
+  },
+  incomeText: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    marginLeft: 10, 
+    color: theme.text,
+    flex: 1
+  },
+  sourceActions: {
+    flexDirection: 'row',
+    marginLeft: 'auto',
+  },
+  incomeAmount: { 
+    fontSize: 16, 
+    marginBottom: 10, 
+    color: theme.text 
+  },
+  progressBarContainer: { 
+    height: 12, 
+    backgroundColor: theme.background, 
+    borderRadius: 6, 
+    marginBottom: 15, 
+    overflow: 'hidden' 
+  },
+  progressBar: { 
+    height: '100%', 
+    borderRadius: 6 
+  },
+  addIncomeButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: theme.primary, 
+    padding: 10, 
+    borderRadius: 8 
+  },
+  addIncomeButtonText: { 
+    color: theme.surface, 
+    marginLeft: 5, 
+    fontWeight: '600' 
+  },
+  transactionItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    backgroundColor: theme.surface, 
+    padding: 15, 
+    borderRadius: 10, 
+    marginBottom: 10 
+  },
+  transactionText: { 
+    fontSize: 16, 
+    color: theme.text 
+  },
+  transactionDate: { 
+    fontSize: 14, 
+    color: theme.onSurface 
+  },
+  transactionAmount: { 
+    fontSize: 16, 
+    fontWeight: 'bold' 
+  },
+  addSourceFAB: { 
+    position: 'absolute', 
+    right: 20, 
+    bottom: 20, 
+    backgroundColor: theme.primary, 
+    width: 56, 
+    height: 56, 
+    borderRadius: 28, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    elevation: 8 
+  },
+  modalContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(0, 0, 0, 0.5)' 
+  },
+  modalContent: { 
+    backgroundColor: theme.surface, 
+    padding: 20, 
+    borderRadius: 10, 
+    width: '80%' 
+  },
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    marginBottom: 15, 
+    color: theme.text 
+  },
+  modalInput: { 
+    borderWidth: 1, 
+    borderColor: theme.onSurface, 
+    borderRadius: 5, 
+    padding: 10, 
+    marginBottom: 10, 
+    color: theme.text 
+  },
+  modalButtons: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between' 
+  },
+  modalButton: { 
+    flex: 1, 
+    backgroundColor: theme.primary, 
+    borderRadius: 4, 
+    padding: 10, 
+    alignItems: 'center', 
+    marginHorizontal: 5 
+  },
+  modalButtonText: { 
+    color: theme.surface, 
+    fontWeight: '600' 
+  },
+  cancelButton: { 
+    backgroundColor: theme.error 
+  },
 });
