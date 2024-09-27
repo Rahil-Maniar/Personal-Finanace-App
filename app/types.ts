@@ -14,7 +14,29 @@ export interface Investment {
     title: string;
     url: string;
   }
+  export interface BondData {
+    symbol: string;
+    name: string;
+    price: string;
+    yield: number;
+    maturityDate: string;
+  }
   
+  export interface MutualFundData {
+    symbol: string;
+    name: string;
+    nav: string;
+    expenseRatio: number;
+    category: string;
+  }
+  
+  export interface CryptoData {
+    symbol: string;
+    name: string;
+    price: string;
+    change: number;
+    volume: number;
+  }
   export interface Transaction {
     id: string;
     type: 'buy' | 'sell';
@@ -28,3 +50,4 @@ export interface Investment {
     date: string;
     value: number;
   }
+  export type InvestmentData = StockData | BondData | MutualFundData | CryptoData;

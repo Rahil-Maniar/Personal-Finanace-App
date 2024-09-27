@@ -1,30 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
-import { StockData } from '../types';
+import { InvestmentData } from '../types';
 
 interface TradeModalProps {
   visible: boolean;
   onClose: () => void;
   onTrade: (tradeType: 'buy' | 'sell', amount: number) => void;
-  stock: StockData | null;
+  investment: InvestmentData | null;
   balance: number;
 }
 
-const TradeModal: React.FC<TradeModalProps> = ({ visible, onClose, onTrade, stock, balance }) => {
+const TradeModal: React.FC<TradeModalProps> = ({ visible, onClose, onTrade, investment, balance }) => {
   const [amount, setAmount] = useState('');
   const [tradeType, setTradeType] = useState<'buy' | 'sell'>('buy');
 
+  useEffect(() => {
+    // Reset amount and trade type when the modal is opened
+    if (visible) {
+      setAmount('');
+      setTradeType('buy');
+    }
+  }, [visible]);
+
   const handleTrade = () => {
-    const parsedAmount = parseInt(amount, 10);
+    const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       alert('Please enter a valid amount');
       return;
     }
+    if (tradeType === 'buy' && totalCost > balance) {
+      alert('Insufficient balance for this trade');
+      return;
+    }
     onTrade(tradeType, parsedAmount);
     setAmount('');
+    onClose();
   };
 
-  const totalCost = stock ? stock.price * parseInt(amount || '0', 10) : 0;
+  const totalCost = investment ? parseFloat(investment.price) * parseFloat(amount || '0') : 0;
+
+  if (!investment) return null;
 
   return (
     <Modal
@@ -35,7 +50,8 @@ const TradeModal: React.FC<TradeModalProps> = ({ visible, onClose, onTrade, stoc
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>{stock?.symbol} - ${stock?.price.toFixed(2)}</Text>
+          <Text style={styles.modalTitle}>{investment.name} ({investment.symbol})</Text>
+          <Text style={styles.priceText}>Current Price: ${parseFloat(investment.price).toFixed(2)}</Text>
           <Text style={styles.balanceText}>Available Balance: ${balance.toFixed(2)}</Text>
           
           <View style={styles.tradeTypeContainer}>
@@ -108,6 +124,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
+  },
+  priceText: {
+    fontSize: 18,
+    marginBottom: 10,
   },
   balanceText: {
     fontSize: 16,

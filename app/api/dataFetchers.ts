@@ -1,7 +1,7 @@
 import { StockData } from '../types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_KEY = 'cJILQTBRVvz6aUI5jvuenTlAH7hjXLOj';
+const API_KEY = 'Nj3jiIkGEpZ600ZCDjgPDSLprvOmGMl2';
 const NEWS_API_KEY = 'cc39f99c6d964dce9b2d0f0ca39ea969';
 const CACHE_KEY = 'STOCK_DATA_CACHE';
 const UPDATE_INTERVAL = 432000; // 5 days in milliseconds (86400 * 5)
@@ -36,7 +36,32 @@ export const fetchStockData = async (): Promise<StockData[]> => {
     return [];
   }
 };
+export const fetchBondData = async (): Promise<BondData[]> => {
+  // Simulating API call
+  return [
+    { symbol: 'T10Y2Y', name: '10-Year Treasury Constant Maturity Minus 2-Year', price: '99.50', yield: 1.5, maturityDate: '2031-09-15' },
+    { symbol: 'DFII10', name: '10-Year Treasury Inflation-Indexed Security', price: '101.25', yield: 0.8, maturityDate: '2031-09-15' },
+    { symbol: 'DGS5', name: '5-Year Treasury Constant Maturity Rate', price: '100.75', yield: 1.2, maturityDate: '2026-09-15' },
+  ];
+};
 
+export const fetchMutualFundData = async (): Promise<MutualFundData[]> => {
+  // Simulating API call
+  return [
+    { symbol: 'VFIAX', name: 'Vanguard 500 Index Fund', nav: '400.25', expenseRatio: 0.04, category: 'Large Blend' },
+    { symbol: 'FXAIX', name: 'Fidelity 500 Index Fund', nav: '150.80', expenseRatio: 0.015, category: 'Large Blend' },
+    { symbol: 'SWPPX', name: 'Schwab S&P 500 Index Fund', nav: '65.50', expenseRatio: 0.02, category: 'Large Blend' },
+  ];
+};
+
+export const fetchCryptoData = async (): Promise<CryptoData[]> => {
+  // Simulating API call
+  return [
+    { symbol: 'BTC', name: 'Bitcoin', price: '45000.00', change: 2.5, volume: 25000000000 },
+    { symbol: 'ETH', name: 'Ethereum', price: '3000.00', change: -1.2, volume: 15000000000 },
+    { symbol: 'ADA', name: 'Cardano', price: '2.50', change: 0.8, volume: 5000000000 },
+  ];
+};
 export const fetchStockPrice = async (symbol: string): Promise<StockData | null> => {
   try {
     const response = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${API_KEY}`);

@@ -237,7 +237,7 @@ export default function Dashboard() {
             <View style={styles.investmentTextContainer}>
               <Title style={styles.investmentCardTitle}>Investments</Title>
               <Paragraph style={styles.investmentCardAmount}>
-                Available Funds: ${savings.toFixed(2)}
+                Available Funds: $10000
               </Paragraph>
               <View style={styles.investmentCardButton}>
                 <Icon name="arrow-right" size={24} color="#FFFFFF" />
